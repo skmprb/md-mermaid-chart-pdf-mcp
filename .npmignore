@@ -1,0 +1,6 @@
+src/
+tsconfig.json
+sample.md
+*.log
+.DS_Store
+node_modules/

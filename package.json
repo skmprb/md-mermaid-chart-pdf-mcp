@@ -1,0 +1,34 @@
+{
+  "name": "md-mermaid-chart-pdf-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "md-mermaid-chart-pdf-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "files": ["build", "README.md"],
+  "keywords": ["mcp", "markdown", "pdf", "converter", "mermaid", "apexcharts", "charts", "diagrams"],
+  "author": "Your Name",
+  "license": "MIT",
+  "description": "A Model Context Protocol (MCP) server that converts Markdown with Mermaid diagrams and ApexCharts to PDF",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skmprb/md-mermaid-chart-pdf-mcp.git"
+  },
+  "homepage": "https://github.com/skmprb/md-mermaid-chart-pdf-mcp#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.8",
+    "marked": "^14.1.3",
+    "puppeteer": "^23.10.4",
+    "gray-matter": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
