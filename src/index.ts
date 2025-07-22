@@ -2,22 +2,26 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
 import { marked } from 'marked';
 import puppeteer from 'puppeteer';
 import matter from 'gray-matter';
 import { readFile, writeFile } from 'fs/promises';
 import { resolve } from 'path';
+import express from 'express';
+import cors from 'cors';
+import { randomUUID } from 'node:crypto';
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 
-// Create server instance
-const server = new McpServer({
-  name: "markdown-pdf-converter",
-  version: "1.0.0",
-  capabilities: {
-    resources: {},
-    tools: {},
-  },
-});
+// Create server factory function
+function createServer() {
+  return new McpServer({
+    name: "markdown-pdf-converter",
+    version: "1.0.0"
+  });
+}
 
 class MarkdownToPdfConverter {
   private options: any;
@@ -407,106 +411,245 @@ class MarkdownToPdfConverter {
   }
 }
 
-// Register markdown to PDF conversion tool
-server.tool(
-  "convert_markdown_to_pdf",
-  "Convert a markdown file to PDF",
-  {
-    markdownPath: z.string().describe("Path to the markdown file to convert"),
-    outputPath: z.string().describe("Path where the PDF should be saved"),
-    format: z.enum(['A4', 'A3', 'A5', 'Letter', 'Legal', 'Tabloid']).optional().describe("PDF page format (default: A4)"),
-    margin: z.object({
-      top: z.string().optional(),
-      right: z.string().optional(),
-      bottom: z.string().optional(),
-      left: z.string().optional()
-    }).optional().describe("PDF margins (e.g., '0.5in', '20mm')")
-  },
-  async ({ markdownPath, outputPath, format, margin }) => {
-    try {
-      const options: any = {};
-      if (format) options.format = format;
-      if (margin) options.margin = margin;
+// Setup server tools function
+function setupServer(server: McpServer) {
+  // Register markdown to PDF conversion tool
+  server.registerTool(
+    "convert_markdown_to_pdf",
+    {
+      title: "Convert Markdown File to PDF",
+      description: "Convert a markdown file to PDF",
+      inputSchema: {
+        markdownPath: z.string().describe("Path to the markdown file to convert"),
+        outputPath: z.string().describe("Path where the PDF should be saved"),
+        format: z.enum(['A4', 'A3', 'A5', 'Letter', 'Legal', 'Tabloid']).optional().describe("PDF page format (default: A4)"),
+        margin: z.object({
+          top: z.string().optional(),
+          right: z.string().optional(),
+          bottom: z.string().optional(),
+          left: z.string().optional()
+        }).optional().describe("PDF margins (e.g., '0.5in', '20mm')")
+      }
+    },
+    async ({ markdownPath, outputPath, format, margin }) => {
+      try {
+        const options: any = {};
+        if (format) options.format = format;
+        if (margin) options.margin = margin;
 
-      const converter = new MarkdownToPdfConverter(options);
-      const resultPath = await converter.convert(markdownPath, outputPath);
+        const converter = new MarkdownToPdfConverter(options);
+        const resultPath = await converter.convert(markdownPath, outputPath);
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Successfully converted markdown to PDF!\nInput: ${markdownPath}\nOutput: ${resultPath}`
-          }
-        ]
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error converting markdown to PDF: ${error instanceof Error ? error.message : String(error)}`
-          }
-        ]
-      };
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Successfully converted markdown to PDF!\nInput: ${markdownPath}\nOutput: ${resultPath}`
+            }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error converting markdown to PDF: ${error instanceof Error ? error.message : String(error)}`
+            }
+          ]
+        };
+      }
     }
-  }
-);
+  );
 
-// Register markdown content to PDF tool
-server.tool(
-  "markdown_content_to_pdf",
-  "Convert markdown content directly to PDF",
-  {
-    markdownContent: z.string().describe("Markdown content to convert"),
-    outputPath: z.string().describe("Path where the PDF should be saved"),
-    title: z.string().optional().describe("Document title for the PDF"),
-    format: z.enum(['A4', 'A3', 'A5', 'Letter', 'Legal', 'Tabloid']).optional().describe("PDF page format (default: A4)"),
-    margin: z.object({
-      top: z.string().optional(),
-      right: z.string().optional(),
-      bottom: z.string().optional(),
-      left: z.string().optional()
-    }).optional().describe("PDF margins (e.g., '0.5in', '20mm')")
-  },
-  async ({ markdownContent, outputPath, title, format, margin }) => {
-    try {
-      const options: any = {};
-      if (format) options.format = format;
-      if (margin) options.margin = margin;
+  // Register markdown content to PDF tool
+  server.registerTool(
+    "markdown_content_to_pdf",
+    {
+      title: "Convert Markdown Content to PDF",
+      description: "Convert markdown content directly to PDF",
+      inputSchema: {
+        markdownContent: z.string().describe("Markdown content to convert"),
+        outputPath: z.string().describe("Path where the PDF should be saved"),
+        title: z.string().optional().describe("Document title for the PDF"),
+        format: z.enum(['A4', 'A3', 'A5', 'Letter', 'Legal', 'Tabloid']).optional().describe("PDF page format (default: A4)"),
+        margin: z.object({
+          top: z.string().optional(),
+          right: z.string().optional(),
+          bottom: z.string().optional(),
+          left: z.string().optional()
+        }).optional().describe("PDF margins (e.g., '0.5in', '20mm')")
+      }
+    },
+    async ({ markdownContent, outputPath, title, format, margin }) => {
+      try {
+        const options: any = {};
+        if (format) options.format = format;
+        if (margin) options.margin = margin;
 
-      const converter = new MarkdownToPdfConverter(options);
-      const frontMatter = title ? { title } : {};
-      const html = converter.generateHtml(markdownContent, frontMatter);
-      const pdf = await converter.htmlToPdf(html);
-      
-      await writeFile(resolve(outputPath), pdf);
-      const resultPath = resolve(outputPath);
+        const converter = new MarkdownToPdfConverter(options);
+        const frontMatter = title ? { title } : {};
+        const html = converter.generateHtml(markdownContent, frontMatter);
+        const pdf = await converter.htmlToPdf(html);
+        
+        await writeFile(resolve(outputPath), pdf);
+        const resultPath = resolve(outputPath);
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Successfully converted markdown content to PDF!\nOutput: ${resultPath}`
-          }
-        ]
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error converting markdown content to PDF: ${error instanceof Error ? error.message : String(error)}`
-          }
-        ]
-      };
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Successfully converted markdown content to PDF!\nOutput: ${resultPath}`
+            }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error converting markdown content to PDF: ${error instanceof Error ? error.message : String(error)}`
+            }
+          ]
+        };
+      }
     }
-  }
-);
+  );
+}
 
-async function main() {
+// Stdio transport (default)
+async function runStdio() {
+  const server = createServer();
+  setupServer(server);
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("Markdown to PDF MCP Server running on stdio");
+}
+
+// HTTP transport with session management
+async function runHttp(port: number = 3000) {
+  const app = express();
+  app.use(express.json());
+  app.use(cors({
+    origin: '*',
+    exposedHeaders: ['Mcp-Session-Id'],
+    allowedHeaders: ['Content-Type', 'mcp-session-id'],
+  }));
+
+  const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
+
+  app.post('/mcp', async (req, res) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    let transport: StreamableHTTPServerTransport;
+
+    if (sessionId && transports[sessionId]) {
+      transport = transports[sessionId];
+    } else if (!sessionId && isInitializeRequest(req.body)) {
+      transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => randomUUID(),
+        onsessioninitialized: (sessionId) => {
+          transports[sessionId] = transport;
+        },
+        enableDnsRebindingProtection: true,
+        allowedHosts: ['127.0.0.1', 'localhost']
+      });
+
+      transport.onclose = () => {
+        if (transport.sessionId) {
+          delete transports[transport.sessionId];
+        }
+      };
+
+      const server = createServer();
+      setupServer(server);
+      await server.connect(transport);
+    } else {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        error: {
+          code: -32000,
+          message: 'Bad Request: No valid session ID provided',
+        },
+        id: null,
+      });
+      return;
+    }
+
+    await transport.handleRequest(req, res, req.body);
+  });
+
+  const handleSessionRequest = async (req: express.Request, res: express.Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId || !transports[sessionId]) {
+      res.status(400).send('Invalid or missing session ID');
+      return;
+    }
+    
+    const transport = transports[sessionId];
+    await transport.handleRequest(req, res);
+  };
+
+  app.get('/mcp', handleSessionRequest);
+  app.delete('/mcp', handleSessionRequest);
+
+  app.listen(port, () => {
+    console.error(`Markdown to PDF MCP Server running on HTTP port ${port}`);
+  });
+}
+
+// SSE transport (legacy support)
+async function runSSE(port: number = 3001) {
+  const app = express();
+  app.use(express.json());
+  app.use(cors());
+
+  const transports: { [sessionId: string]: SSEServerTransport } = {};
+
+  app.get('/sse', async (req, res) => {
+    const transport = new SSEServerTransport('/messages', res);
+    transports[transport.sessionId] = transport;
+    
+    res.on("close", () => {
+      delete transports[transport.sessionId];
+    });
+    
+    const server = createServer();
+    setupServer(server);
+    await server.connect(transport);
+  });
+
+  app.post('/messages', async (req, res) => {
+    const sessionId = req.query.sessionId as string;
+    const transport = transports[sessionId];
+    if (transport) {
+      await transport.handlePostMessage(req, res, req.body);
+    } else {
+      res.status(400).send('No transport found for sessionId');
+    }
+  });
+
+  app.listen(port, () => {
+    console.error(`Markdown to PDF MCP Server running on SSE port ${port}`);
+  });
+}
+
+// Main function to handle different transport modes
+async function main() {
+  const args = process.argv.slice(2);
+  const mode = args[0] || 'stdio';
+  const port = parseInt(args[1]) || undefined;
+
+  switch (mode) {
+    case 'http':
+      await runHttp(port);
+      break;
+    case 'sse':
+      await runSSE(port);
+      break;
+    case 'stdio':
+    default:
+      await runStdio();
+      break;
+  }
 }
 
 main().catch((error) => {
