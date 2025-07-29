@@ -1,9 +1,9 @@
 {
   "name": "md-mermaid-chart-pdf-mcp",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "bin": {
-    "md-mermaid-chart-pdf-mcp": "./build/index.js"
+    "md-mermaid-chart-pdf-mcp": "build/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -13,14 +13,38 @@
     "start:sse": "node build/index.js sse 3001",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "files": ["build", "README.md", "CHANGELOG.md", "LICENSE"],
-  "keywords": ["mcp", "model-context-protocol", "markdown", "pdf", "converter", "mermaid", "apexcharts", "charts", "diagrams", "stdio", "http", "sse", "transport", "claude", "ai", "llm", "server", "typescript"],
+  "files": [
+    "build",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "markdown",
+    "pdf",
+    "converter",
+    "mermaid",
+    "apexcharts",
+    "charts",
+    "diagrams",
+    "stdio",
+    "http",
+    "sse",
+    "transport",
+    "claude",
+    "ai",
+    "llm",
+    "server",
+    "typescript"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "description": "A powerful MCP server with stdio/HTTP/SSE transport support for converting Markdown files and content to beautifully styled PDFs with Mermaid diagrams and ApexCharts. Features modern typography, multiple page formats, and professional styling.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/skmprb/md-mermaid-chart-pdf-mcp.git"
+    "url": "git+https://github.com/skmprb/md-mermaid-chart-pdf-mcp.git"
   },
   "homepage": "https://github.com/skmprb/md-mermaid-chart-pdf-mcp#readme",
   "bugs": {
@@ -29,8 +53,15 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "os": ["darwin", "linux", "win32"],
-  "cpu": ["x64", "arm64"],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0",
     "zod": "^3.23.8",

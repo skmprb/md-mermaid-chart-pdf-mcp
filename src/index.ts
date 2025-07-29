@@ -79,28 +79,37 @@ class MarkdownToPdfConverter {
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
     
     :root {
-      --primary: #2563eb;
-      --primary-light: #3b82f6;
-      --accent: #f59e0b;
-      --success: #10b981;
-      --danger: #ef4444;
-      --gray-50: #f9fafb;
-      --gray-100: #f3f4f6;
-      --gray-200: #e5e7eb;
-      --gray-600: #4b5563;
-      --gray-700: #374151;
-      --gray-800: #1f2937;
-      --gray-900: #111827;
+      /* Virtusa Primary Colors */
+      --virtusa-blue: #00AAFF;
+      --virtusa-violet: #403FF6;
+      --virtusa-dark-blue: #202BB9;
+      --virtusa-navy: #00187C;
+      --virtusa-light-blue: #2F76FF;
+      --virtusa-medium-blue: #1C54B6;
+      --virtusa-deep-blue: #09326D;
+      
+      /* Virtusa Secondary Colors */
+      --virtusa-green: #51F2B8;
+      --virtusa-magenta: #A825DB;
+      --virtusa-red: #FF595A;
+      
+      /* Virtusa Grays */
+      --virtusa-charcoal: #36312D;
+      --virtusa-gray: #858381;
+      --virtusa-light-gray: #AFADAB;
+      --virtusa-lighter-gray: #D7D6D5;
+      --virtusa-lightest-gray: #EBEAEA;
+      --virtusa-white-gray: #F5F5F5;
     }
     
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 11pt;
       line-height: 1.6;
-      color: var(--gray-800);
+      color: var(--virtusa-charcoal);
       margin: 0;
-      padding: 2rem;
-      background: linear-gradient(135deg, #fafbfc 0%, #f8fafc 100%);
+      padding: 0.3rem;
+      background: #ffffff;
       position: relative;
     }
     
@@ -111,25 +120,25 @@ class MarkdownToPdfConverter {
       left: 0;
       right: 0;
       height: 4px;
-      background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 50%, var(--accent) 100%);
+      background: linear-gradient(90deg, var(--virtusa-violet) 0%, var(--virtusa-blue) 50%, var(--virtusa-green) 100%);
     }
     
     h1, h2, h3, h4, h5, h6 {
       font-family: 'Inter', sans-serif;
-      color: var(--gray-900);
-      margin: 2em 0 0.8em 0;
+      color: var(--virtusa-charcoal);
+      margin: 1.2em 0 0.5em 0;
       page-break-after: avoid;
       position: relative;
       font-weight: 700;
     }
     
     h1 {
-      font-size: 28pt;
+      font-size: 22pt;
       font-weight: 800;
       margin-top: 0;
-      color: var(--primary);
-      padding-bottom: 0.5em;
-      border-bottom: 3px solid var(--primary);
+      color: var(--virtusa-dark-blue);
+      padding-bottom: 0.3em;
+      border-bottom: 3px solid var(--virtusa-blue);
       position: relative;
     }
     
@@ -140,23 +149,21 @@ class MarkdownToPdfConverter {
       left: 0;
       width: 60px;
       height: 3px;
-      background: var(--accent);
+      background: var(--virtusa-green);
     }
     
     h2 {
-      font-size: 20pt;
-      color: var(--gray-800);
+      font-size: 16pt;
+      color: var(--virtusa-charcoal);
       padding-left: 1rem;
-      border-left: 4px solid var(--primary);
-      background: linear-gradient(90deg, var(--gray-50) 0%, transparent 100%);
-      padding: 0.5rem 1rem;
+      border-left: 4px solid var(--virtusa-blue);
+      padding: 0.3rem 1rem;
       margin-left: -1rem;
-      border-radius: 0 8px 8px 0;
     }
     
     h3 {
-      font-size: 16pt;
-      color: var(--gray-700);
+      font-size: 13pt;
+      color: var(--virtusa-charcoal);
       position: relative;
       padding-left: 1.5rem;
     }
@@ -165,41 +172,38 @@ class MarkdownToPdfConverter {
       content: '▶';
       position: absolute;
       left: 0;
-      color: var(--primary);
-      font-size: 12pt;
+      color: var(--virtusa-blue);
+      font-size: 10pt;
     }
     
     h4 {
-      font-size: 12pt;
-      color: var(--gray-700);
+      font-size: 11pt;
+      color: var(--virtusa-charcoal);
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
     
-    p { margin: 0 0 1.2em 0; }
+    p { margin: 0 0 0.8em 0; }
     
-    ul, ol { margin: 1em 0; padding-left: 1.5em; }
-    li { margin: 0.5em 0; }
+    ul, ol { margin: 0.8em 0; padding-left: 1.5em; }
+    li { margin: 0.3em 0; }
     
-    ul li::marker { color: var(--primary); font-weight: bold; }
-    ol li::marker { color: var(--primary); font-weight: bold; }
+    ul li::marker { color: var(--virtusa-blue); font-weight: bold; }
+    ol li::marker { color: var(--virtusa-blue); font-weight: bold; }
     
     blockquote {
-      margin: 1.5em 0;
-      padding: 1rem 1.5rem;
-      border-left: 4px solid var(--accent);
-      background: var(--gray-50);
+      margin: 1em 0;
+      padding: 0.8rem 1.2rem;
+      border-left: 4px solid var(--virtusa-green);
       font-style: italic;
-      border-radius: 0 8px 8px 0;
     }
     
     table {
       border-collapse: collapse;
       width: 100%;
-      margin: 1.5em 0;
+      margin: 1em 0;
       font-size: 11pt;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
       border-radius: 8px;
       overflow: hidden;
     }
@@ -207,11 +211,11 @@ class MarkdownToPdfConverter {
     th, td {
       padding: 12px 16px;
       text-align: left;
-      border-bottom: 1px solid var(--gray-200);
+      border-bottom: 1px solid var(--virtusa-lighter-gray);
     }
     
     th {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      background: linear-gradient(135deg, var(--virtusa-blue) 0%, var(--virtusa-light-blue) 100%);
       color: white;
       font-weight: 600;
       text-transform: uppercase;
@@ -219,19 +223,18 @@ class MarkdownToPdfConverter {
       font-size: 10pt;
     }
     
-    tr:nth-child(even) { background: var(--gray-50); }
+    tr:nth-child(even) { background: #ffffff; }
     
     pre {
       font-family: 'JetBrains Mono', 'SF Mono', Monaco, Consolas, monospace;
       font-size: 10pt;
-      background: var(--gray-900);
+      background: var(--virtusa-charcoal);
       color: #e5e7eb;
-      padding: 1.5rem;
-      margin: 1.5em 0;
-      border-radius: 12px;
+      padding: 1rem;
+      margin: 1em 0;
+      border-radius: 8px;
       overflow-x: auto;
       position: relative;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     }
     
     pre::before {
@@ -241,18 +244,19 @@ class MarkdownToPdfConverter {
       left: 0;
       right: 0;
       height: 3px;
-      background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
-      border-radius: 12px 12px 0 0;
+      background: linear-gradient(90deg, var(--virtusa-violet), var(--virtusa-blue), var(--virtusa-green), var(--virtusa-magenta));
+      border-radius: 8px 8px 0 0;
     }
     
     code {
       font-family: 'JetBrains Mono', 'SF Mono', Monaco, Consolas, monospace;
       font-size: 10pt;
-      background: var(--gray-100);
-      color: var(--danger);
+      background: #ffffff;
+      color: var(--virtusa-red);
       padding: 3px 6px;
       border-radius: 4px;
       font-weight: 500;
+      border: 1px solid var(--virtusa-lighter-gray);
     }
     
     pre code { background: transparent; color: inherit; padding: 0; }
@@ -261,17 +265,17 @@ class MarkdownToPdfConverter {
       text-align: center;
       margin: 2em 0;
       padding: 1rem;
-      background: var(--gray-50);
+      background: #ffffff;
       border-radius: 12px;
-      border: 2px dashed var(--gray-200);
+      border: 2px dashed var(--virtusa-lighter-gray);
     }
     
     .apex-chart {
       margin: 2em 0;
       padding: 1rem;
-      background: var(--gray-50);
+      background: #ffffff;
       border-radius: 12px;
-      border: 1px solid var(--gray-200);
+      border: 1px solid var(--virtusa-lighter-gray);
       width: 100%;
       max-width: 100%;
       overflow: hidden;
@@ -289,25 +293,21 @@ class MarkdownToPdfConverter {
     
     strong {
       font-weight: 600;
-      color: var(--gray-900);
-      background: linear-gradient(120deg, var(--accent) 0%, transparent 100%);
-      background-size: 100% 30%;
-      background-repeat: no-repeat;
-      background-position: 0 85%;
+      color: var(--virtusa-charcoal);
     }
     
-    em { font-style: italic; color: var(--gray-700); }
+    em { font-style: italic; color: var(--virtusa-gray); }
     
     a {
-      color: var(--primary);
+      color: var(--virtusa-blue);
       text-decoration: none;
-      border-bottom: 1px solid var(--primary);
+      border-bottom: 1px solid var(--virtusa-blue);
     }
     
     hr {
       border: none;
       height: 2px;
-      background: linear-gradient(90deg, transparent 0%, var(--primary) 50%, transparent 100%);
+      background: linear-gradient(90deg, transparent 0%, var(--virtusa-blue) 50%, transparent 100%);
       margin: 2em 0;
     }
   </style>
