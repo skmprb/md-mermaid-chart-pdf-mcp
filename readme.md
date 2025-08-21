@@ -1,11 +1,11 @@
-# md-mermaid-chart-pdf-mcp
+# s3-md-pdf-converter-mcp
 
-[![npm version](https://badge.fury.io/js/md-mermaid-chart-pdf-mcp.svg)](https://badge.fury.io/js/md-mermaid-chart-pdf-mcp)
+[![npm version](https://badge.fury.io/js/s3-md-pdf-converter-mcp.svg)](https://badge.fury.io/js/s3-md-pdf-converter-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP SDK](https://img.shields.io/badge/MCP%20SDK-1.16.x-blue.svg)](https://github.com/modelcontextprotocol/typescript-sdk)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org/)
 
-A powerful **Model Context Protocol (MCP) server** that converts Markdown files and content to beautifully styled PDFs with **Mermaid diagrams** and **ApexCharts** support. Built with **MCP SDK 1.16.x** featuring **all transport modes**: stdio, HTTP, and SSE.
+A powerful **Model Context Protocol (MCP) server** that converts Markdown files and content to beautifully styled PDFs with **S3 integration**, **Mermaid diagrams** and **ApexCharts** support. Built with **MCP SDK 1.16.x** featuring **all transport modes**: stdio, HTTP, and SSE.
 
 ## ✨ Features
 
@@ -17,36 +17,38 @@ A powerful **Model Context Protocol (MCP) server** that converts Markdown files 
 - **DNS rebinding protection**: Enhanced security
 
 ### 📄 **PDF Conversion**
-- 🔄 **Two conversion modes**: File-to-PDF and content-to-PDF
+- 🔄 **Three conversion modes**: File-to-PDF, content-to-PDF, and S3-to-PDF
+- ☁️ **S3 Integration**: Direct download from S3 buckets and upload PDFs back to S3
 - 📊 **Charts & diagrams**: Mermaid diagrams + ApexCharts support
-- 🎨 **Modern styling**: Professional typography with Inter font and syntax highlighting
+- 🎨 **Modern styling**: Professional typography with syntax highlighting
 - 📄 **Multiple formats**: A4, A3, A5, Letter, Legal, Tabloid
 - ⚙️ **Configurable margins**: Custom spacing in inches, mm, cm
 - 📝 **Front matter support**: YAML metadata for document properties
 - 🎯 **Accessibility**: Tagged PDFs with proper outline structure
+- 📦 **Large content support**: JSON structure for handling 10,000+ line documents
 
 ## 🚀 Quick Start
 
 ### Option 1: Use with npx (Recommended)
 ```bash
 # Default stdio mode (for Claude Desktop)
-npx md-mermaid-chart-pdf-mcp
+npx s3-md-pdf-converter-mcp
 
 # HTTP server mode
-npx md-mermaid-chart-pdf-mcp http 3000
+npx s3-md-pdf-converter-mcp http 3000
 
 # SSE server mode (legacy)
-npx md-mermaid-chart-pdf-mcp sse 3001
+npx s3-md-pdf-converter-mcp sse 3001
 ```
 
 ### Option 2: Global Installation
 ```bash
-npm install -g md-mermaid-chart-pdf-mcp
+npm install -g s3-md-pdf-converter-mcp
 
 # Run in different modes
-md-mermaid-chart-pdf-mcp              # stdio (default)
-md-mermaid-chart-pdf-mcp http 3000    # HTTP server
-md-mermaid-chart-pdf-mcp sse 3001     # SSE server
+s3-md-pdf-converter-mcp              # stdio (default)
+s3-md-pdf-converter-mcp http 3000    # HTTP server
+s3-md-pdf-converter-mcp sse 3001     # SSE server
 ```
 
 ## 🔧 Integration Options
@@ -60,9 +62,9 @@ Add to your Claude Desktop configuration:
 ```json
 {
   "mcpServers": {
-    "markdown-pdf": {
+    "s3-markdown-pdf": {
       "command": "npx",
-      "args": ["md-mermaid-chart-pdf-mcp"]
+      "args": ["s3-md-pdf-converter-mcp"]
     }
   }
 }
@@ -71,7 +73,7 @@ Add to your Claude Desktop configuration:
 ### HTTP Server
 ```bash
 # Start HTTP server on port 3000
-npx md-mermaid-chart-pdf-mcp http 3000
+npx s3-md-pdf-converter-mcp http 3000
 
 # Or with npm
 npm run start:http
@@ -80,7 +82,7 @@ npm run start:http
 ### SSE Server (Legacy)
 ```bash
 # Start SSE server on port 3001
-npx md-mermaid-chart-pdf-mcp sse 3001
+npx s3-md-pdf-converter-mcp sse 3001
 
 # Or with npm
 npm run start:sse
@@ -101,6 +103,17 @@ Restart Claude Desktop after configuration.
 # My Document
 This is **bold** text with a [link](https://example.com)
 "
+```
+
+### S3 Integration
+```
+"Convert S3 markdown from bucket 'my-docs' key 'report.md' and save to 'output.pdf'"
+"Convert S3 markdown from bucket 'docs' key 'readme.md' and upload PDF to S3 with key 'readme.pdf' and uploadToS3 true"
+```
+
+### Large Content Support
+```
+"Convert this large markdown content to PDF: {content: 'Main content...', chunks: ['Section 1...', 'Section 2...']}"
 ```
 
 ### Custom Formatting
@@ -200,19 +213,31 @@ fetch('http://localhost:3001/messages?sessionId=abc123', {
 ## 🛠️ Available Tools
 
 ### `convert_markdown_to_pdf`
-Converts a markdown file to PDF.
+Converts a markdown file to PDF (supports local files, URLs, and S3 URLs).
 
 **Parameters:**
-- `markdownPath` (string): Path to the markdown file
+- `markdownPath` (string): Path to the markdown file (local path or URL)
 - `outputPath` (string): Where to save the PDF
 - `format` (optional): Page format (A4, A3, A5, Letter, Legal, Tabloid)
 - `margin` (optional): Custom margins object
 
-### `markdown_content_to_pdf`
-Converts markdown content directly to PDF.
+### `convert_s3_markdown_to_pdf`
+Converts a markdown file from S3 bucket to PDF using bucket and key parameters.
 
 **Parameters:**
-- `markdownContent` (string): Markdown content to convert
+- `bucket` (string): S3 bucket name
+- `key` (string): S3 object key (path to the markdown file)
+- `outputPath` (string): Where to save the PDF (local path or S3 key for upload)
+- `uploadToS3` (boolean, optional): Whether to upload the PDF back to the same S3 bucket
+- `region` (string, optional): AWS region (defaults to us-east-1)
+- `format` (optional): Page format (A4, A3, A5, Letter, Legal, Tabloid)
+- `margin` (optional): Custom margins object
+
+### `markdown_content_to_pdf`
+Converts markdown content directly to PDF (supports large content with JSON structure).
+
+**Parameters:**
+- `markdownContent` (string or object): Markdown content to convert (string or JSON object with content/chunks)
 - `outputPath` (string): Where to save the PDF
 - `title` (optional): Document title
 - `format` (optional): Page format
@@ -334,8 +359,8 @@ Send MCP messages to server.
 ### Local Development
 ```bash
 # Clone and install
-git clone https://github.com/skmprb/md-mermaid-chart-pdf-mcp.git
-cd md-mermaid-chart-pdf-mcp
+git clone https://github.com/skmprb/s3-md-pdf-converter-mcp.git
+cd s3-md-pdf-converter-mcp
 npm install
 npm run build
 
@@ -362,10 +387,10 @@ CMD ["npm", "run", "start:http"]
 #### PM2 Process Manager
 ```bash
 # Install globally
-npm install -g md-mermaid-chart-pdf-mcp pm2
+npm install -g s3-md-pdf-converter-mcp pm2
 
 # Start with PM2
-pm2 start "md-mermaid-chart-pdf-mcp http 3000" --name mcp-pdf-server
+pm2 start "s3-md-pdf-converter-mcp http 3000" --name s3-mcp-pdf-server
 pm2 startup
 pm2 save
 ```
@@ -532,7 +557,7 @@ lsof -i :3000
 kill -9 <PID>
 
 # Or use different port
-npx md-mermaid-chart-pdf-mcp http 3001
+npx s3-md-pdf-converter-mcp http 3001
 ```
 
 #### CORS Issues
@@ -548,10 +573,10 @@ app.use(cors({
 ### Debug Mode
 ```bash
 # Enable debug logging
-DEBUG=mcp:* npx md-mermaid-chart-pdf-mcp http 3000
+DEBUG=mcp:* npx s3-md-pdf-converter-mcp http 3000
 
 # Verbose Puppeteer logging
-DEBUG=puppeteer:* npx md-mermaid-chart-pdf-mcp
+DEBUG=puppeteer:* npx s3-md-pdf-converter-mcp
 ```
 
 ### Health Check Endpoint
@@ -632,7 +657,7 @@ app.use(cors({
 
 ## 🐛 Issues & Support
 
-Found a bug or need help? Please [open an issue](https://github.com/skmprb/md-mermaid-chart-pdf-mcp/issues) on GitHub.
+Found a bug or need help? Please [open an issue](https://github.com/skmprb/s3-md-pdf-converter-mcp/issues) on GitHub.
 
 ### Before Opening an Issue
 1. Check existing issues for duplicates
@@ -655,4 +680,4 @@ Give a ⭐️ if this project helped you!
 
 ---
 
-**Built with ❤️ using [MCP SDK 1.16.x](https://github.com/modelcontextprotocol/typescript-sdk)**
+**Built with ❤️ using [MCP SDK 1.16.x](https://github.com/modelcontextprotocol/typescript-sdk) and [AWS SDK v3](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/)**

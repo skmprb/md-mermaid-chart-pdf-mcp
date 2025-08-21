@@ -14,6 +14,7 @@ import express from 'express';
 import cors from 'cors';
 import { randomUUID } from 'node:crypto';
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
 // Create server factory function
 function createServer() {
@@ -37,7 +38,14 @@ class MarkdownToPdfConverter {
   }
 
   async convert(markdownPath: string, outputPath: string) {
-    const markdownContent = await readFile(resolve(markdownPath), 'utf8');
+    let markdownContent: string;
+    
+    if (this.isUrl(markdownPath)) {
+      markdownContent = await this.downloadFile(markdownPath);
+    } else {
+      markdownContent = await readFile(resolve(markdownPath), 'utf8');
+    }
+    
     const { data: frontMatter, content } = matter(markdownContent);
     
     const html = this.generateHtml(content, frontMatter);
@@ -45,6 +53,77 @@ class MarkdownToPdfConverter {
     
     await writeFile(resolve(outputPath), pdf);
     return resolve(outputPath);
+  }
+
+  private isUrl(path: string): boolean {
+    return path.startsWith('http://') || path.startsWith('https://');
+  }
+
+  private async downloadFile(url: string): Promise<string> {
+    if (this.isS3Url(url)) {
+      return await this.downloadFromS3(url);
+    }
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to download file from ${url}: ${response.status} ${response.statusText}`);
+    }
+    return await response.text();
+  }
+
+  private isS3Url(url: string): boolean {
+    return url.includes('.s3.') || url.includes('s3.amazonaws.com') || url.startsWith('s3://');
+  }
+
+  private async downloadFromS3(url: string): Promise<string> {
+    const { bucket, key } = this.parseS3Url(url);
+    
+    const s3Client = new S3Client({});
+    const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+    
+    const response = await s3Client.send(command);
+    return await response.Body?.transformToString() || '';
+  }
+
+  private parseS3Url(url: string): { bucket: string; key: string } {
+    if (url.startsWith('s3://')) {
+      const parts = url.slice(5).split('/');
+      return { bucket: parts[0], key: parts.slice(1).join('/') };
+    }
+    
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.slice(1).split('/');
+    
+    if (urlObj.hostname.includes('.s3.')) {
+      const bucket = urlObj.hostname.split('.s3.')[0];
+      return { bucket, key: pathParts.join('/') };
+    }
+    
+    if (urlObj.hostname === 's3.amazonaws.com') {
+      return { bucket: pathParts[0], key: pathParts.slice(1).join('/') };
+    }
+    
+    throw new Error(`Invalid S3 URL format: ${url}`);
+  }
+
+  async downloadFromS3Direct(bucket: string, key: string, region?: string): Promise<string> {
+    const s3Client = new S3Client({ region: region || 'us-east-1' });
+    const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+    
+    const response = await s3Client.send(command);
+    return await response.Body?.transformToString() || '';
+  }
+
+  async uploadToS3(bucket: string, key: string, pdfBuffer: Buffer, region?: string): Promise<void> {
+    const s3Client = new S3Client({ region: region || 'us-east-1' });
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: pdfBuffer,
+      ContentType: 'application/pdf'
+    });
+    
+    await s3Client.send(command);
   }
 
   generateHtml(markdown: string, frontMatter: any = {}) {
@@ -60,6 +139,21 @@ class MarkdownToPdfConverter {
             return `<div class="apex-chart" data-config='${code.replace(/'/g, '&apos;')}'></div>`;
           }
           return `<pre><code class="language-${language || ''}">${code}</code></pre>`;
+        },
+        link: (token: any) => {
+          const href = token.href;
+          const title = token.title ? ` title="${token.title}"` : '';
+          const text = token.text;
+          
+          // Ensure proper link formatting for PDF
+          return `<a href="${href}"${title} style="color: #0066cc; text-decoration: underline; word-break: break-all;">${text}</a>`;
+        },
+        heading: (token: any) => {
+          const level = token.depth;
+          const text = token.text;
+          const id = text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+          
+          return `<h${level} id="${id}">${text}</h${level}>`;
         }
       },
       gfm: true,
@@ -76,213 +170,169 @@ class MarkdownToPdfConverter {
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.44.0/dist/apexcharts.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
-    
-    :root {
-      /* Virtusa Primary Colors */
-      --virtusa-blue: #00AAFF;
-      --virtusa-violet: #403FF6;
-      --virtusa-dark-blue: #202BB9;
-      --virtusa-navy: #00187C;
-      --virtusa-light-blue: #2F76FF;
-      --virtusa-medium-blue: #1C54B6;
-      --virtusa-deep-blue: #09326D;
-      
-      /* Virtusa Secondary Colors */
-      --virtusa-green: #51F2B8;
-      --virtusa-magenta: #A825DB;
-      --virtusa-red: #FF595A;
-      
-      /* Virtusa Grays */
-      --virtusa-charcoal: #36312D;
-      --virtusa-gray: #858381;
-      --virtusa-light-gray: #AFADAB;
-      --virtusa-lighter-gray: #D7D6D5;
-      --virtusa-lightest-gray: #EBEAEA;
-      --virtusa-white-gray: #F5F5F5;
+    @page {
+      size: A4;
+      margin: 1.5cm 2cm;
     }
-    
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 11pt;
-      line-height: 1.6;
-      color: var(--virtusa-charcoal);
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #333;
       margin: 0;
-      padding: 0.3rem;
-      background: #ffffff;
-      position: relative;
     }
-    
-    body::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, var(--virtusa-violet) 0%, var(--virtusa-blue) 50%, var(--virtusa-green) 100%);
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 10px;
     }
-    
-    h1, h2, h3, h4, h5, h6 {
-      font-family: 'Inter', sans-serif;
-      color: var(--virtusa-charcoal);
-      margin: 1.2em 0 0.5em 0;
-      page-break-after: avoid;
-      position: relative;
-      font-weight: 700;
+    header img {
+      width: 16px;
+      height: 16px;
+      border-radius: 6px;
     }
-    
+    header strong {
+      font-size: 18px;
+      color: #1e3c72;
+      font-weight: bold;
+    }
+    .meta-info {
+      background: #e3f2fd;
+      border: 1px solid #bbdefb;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      margin: 15px 0 20px 0;
+      font-size: 12px;
+    }
+    .meta-info p {
+      margin: 4px 0;
+    }
+    .meta-label {
+      font-weight: bold;
+      color: #1565c0;
+      margin-right: 8px;
+    }
     h1 {
-      font-size: 22pt;
-      font-weight: 800;
-      margin-top: 0;
-      color: var(--virtusa-dark-blue);
-      padding-bottom: 0.3em;
-      border-bottom: 3px solid var(--virtusa-blue);
-      position: relative;
+      font-size: 18px;
+      color: #00187C;
+      margin: 25px 0 15px 0;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #00187C;
     }
-    
-    h1::after {
-      content: '';
-      position: absolute;
-      bottom: -3px;
-      left: 0;
-      width: 60px;
-      height: 3px;
-      background: var(--virtusa-green);
-    }
-    
     h2 {
-      font-size: 16pt;
-      color: var(--virtusa-charcoal);
-      padding-left: 1rem;
-      border-left: 4px solid var(--virtusa-blue);
-      padding: 0.3rem 1rem;
-      margin-left: -1rem;
+      font-size: 16px;
+      color: Black;
+      background: #e3f2fd;
+      margin: 20px 0 12px 0;
+      padding: 10px 15px;
+      border-radius: 4px;
     }
-    
     h3 {
-      font-size: 13pt;
-      color: var(--virtusa-charcoal);
-      position: relative;
-      padding-left: 1.5rem;
+      font-size: 14px;
+      color: #00187C;
+      margin: 16px 0 10px 0;
     }
-    
-    h3::before {
-      content: '▶';
-      position: absolute;
-      left: 0;
-      color: var(--virtusa-blue);
-      font-size: 10pt;
+    h4, h5, h6 {
+      font-size: 12px;
+      color: #00AAFF;
+      margin: 12px 0 8px 0;
     }
-    
-    h4 {
-      font-size: 11pt;
-      color: var(--virtusa-charcoal);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    p { margin: 8px 0; text-align: justify; }
+    ul, ol { margin: 10px 0; padding-left: 25px; }
+    li { margin-bottom: 5px; line-height: 1.4; }
+    pre {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      padding: 12px;
+      font-size: 10px;
+      font-family: monospace;
+      margin: 12px 0;
     }
-    
-    p { margin: 0 0 0.8em 0; }
-    
-    ul, ol { margin: 0.8em 0; padding-left: 1.5em; }
-    li { margin: 0.3em 0; }
-    
-    ul li::marker { color: var(--virtusa-blue); font-weight: bold; }
-    ol li::marker { color: var(--virtusa-blue); font-weight: bold; }
-    
-    blockquote {
-      margin: 1em 0;
-      padding: 0.8rem 1.2rem;
-      border-left: 4px solid var(--virtusa-green);
-      font-style: italic;
+    code {
+      background: #f1f3f4;
+      font-size: 10px;
+      font-family: monospace;
+      padding: 2px 4px;
+      border: 1px solid #e1e5e9;
     }
-    
     table {
       border-collapse: collapse;
       width: 100%;
-      margin: 1em 0;
-      font-size: 11pt;
-      border-radius: 8px;
-      overflow: hidden;
+      margin: 15px 0;
+      font-size: 10px;
     }
-    
-    th, td {
-      padding: 12px 16px;
-      text-align: left;
-      border-bottom: 1px solid var(--virtusa-lighter-gray);
-    }
-    
     th {
-      background: linear-gradient(135deg, var(--virtusa-blue) 0%, var(--virtusa-light-blue) 100%);
+      background: #495057;
       color: white;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-size: 10pt;
+      font-weight: bold;
+      padding: 8px 6px;
+      text-align: left;
+      border: 1px solid #dee2e6;
     }
-    
-    tr:nth-child(even) { background: #ffffff; }
-    
-    pre {
-      font-family: 'JetBrains Mono', 'SF Mono', Monaco, Consolas, monospace;
-      font-size: 10pt;
-      background: var(--virtusa-charcoal);
-      color: #e5e7eb;
-      padding: 1rem;
-      margin: 1em 0;
-      border-radius: 8px;
-      overflow-x: auto;
-      position: relative;
+    td {
+      padding: 6px;
+      border: 1px solid #dee2e6;
+      vertical-align: top;
     }
-    
-    pre::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--virtusa-violet), var(--virtusa-blue), var(--virtusa-green), var(--virtusa-magenta));
-      border-radius: 8px 8px 0 0;
+    blockquote {
+      border-left: 4px solid #007bff;
+      background: #f8f9fa;
+      margin: 15px 0;
+      padding: 10px 15px;
+      font-style: italic;
+      color: #495057;
     }
-    
-    code {
-      font-family: 'JetBrains Mono', 'SF Mono', Monaco, Consolas, monospace;
-      font-size: 10pt;
-      background: #ffffff;
-      color: var(--virtusa-red);
-      padding: 3px 6px;
-      border-radius: 4px;
-      font-weight: 500;
-      border: 1px solid var(--virtusa-lighter-gray);
+    a {
+      color: #0066cc;
+      text-decoration: underline;
+      word-break: break-all;
     }
-    
-    pre code { background: transparent; color: inherit; padding: 0; }
-    
+    a:hover {
+      color: #004499;
+      text-decoration: underline;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #ddd;
+      margin: 20px 0;
+    }
+    .use-case-separator {
+      border-top: 1px solid #e0e0e0;
+      margin: 25px 0;
+      padding-top: 0;
+    }
     .mermaid {
       text-align: center;
-      margin: 2em 0;
+      margin: 1.5em 0;
       padding: 1rem;
       background: #ffffff;
-      border-radius: 12px;
-      border: 2px dashed var(--virtusa-lighter-gray);
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      page-break-inside: avoid;
     }
-    
+    .mermaid svg {
+      max-width: 100% !important;
+      max-height: 400px !important;
+      height: auto !important;
+      font-family: 'Inter', 'Segoe UI', sans-serif !important;
+    }
     .apex-chart {
       margin: 2em 0;
       padding: 1rem;
       background: #ffffff;
       border-radius: 12px;
-      border: 1px solid var(--virtusa-lighter-gray);
+      border: 1px solid #e0e0e0;
       width: 100%;
       max-width: 100%;
       overflow: hidden;
       box-sizing: border-box;
       text-align: center;
     }
-    
     .apexcharts-canvas {
       max-width: 600px !important;
       max-height: 400px !important;
@@ -290,32 +340,43 @@ class MarkdownToPdfConverter {
       height: auto !important;
       margin: 0 auto !important;
     }
-    
-    strong {
-      font-weight: 600;
-      color: var(--virtusa-charcoal);
-    }
-    
-    em { font-style: italic; color: var(--virtusa-gray); }
-    
-    a {
-      color: var(--virtusa-blue);
-      text-decoration: none;
-      border-bottom: 1px solid var(--virtusa-blue);
-    }
-    
-    hr {
-      border: none;
-      height: 2px;
-      background: linear-gradient(90deg, transparent 0%, var(--virtusa-blue) 50%, transparent 100%);
-      margin: 2em 0;
-    }
   </style>
 </head>
 <body>
+  <header>
+    <img src="https://pbs.twimg.com/profile_images/1650467305833529344/WN63xX4Y.jpg" alt="Helio Cloud Platform"/>
+    <strong>HCP – Requirements Generator & Analyzer Report</strong>
+  </header>
+  <hr>
+  <div class="meta-info">
+    <p><span class="meta-label">Document:</span> ${frontMatter.title || 'Markdown Document'}</p>
+    <p><span class="meta-label">Generated:</span> ${new Date().toLocaleString()}</p>
+  </div>
   ${htmlContent}
   <script>
-    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "base",
+      themeVariables: {
+        background: "#ffffff",
+        primaryColor: "#eef2f7",
+        primaryBorderColor: "#a0aec0",
+        primaryTextColor: "#1f2d3d",
+        secondaryColor: "#e2e8f0",
+        tertiaryColor: "#cbd5e1",
+        lineColor: "#64748b",
+        textColor: "#2d3748",
+        nodeTextColor: "#1f2d3d",
+        edgeLabelBackground: "#f1f5f9",
+        fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji",
+        fontSize: "13px"
+      },
+      themeCSS: 'svg { background: #ffffff; } .label, .nodeLabel, .edgeLabel { font-weight: 500; fill: #2d3748; } .node rect, .node circle, .node polygon { fill: #eef2f7; stroke: #a0aec0; stroke-width: 1.3px; rx: 10; ry: 10; filter: drop-shadow(0 3px 10px rgba(0,0,0,0.07)); } .edgePath .path { stroke: #64748b; stroke-width: 1.6px; stroke-linecap: round; } .cluster rect { fill: #e2e8f0 !important; stroke: #a0aec0 !important; rx: 12; ry: 12; } .title { font-weight: 600; fill: #1f2d3d; } .marker { fill: #64748b; } .note { fill: #cbd5e1; stroke: #a0aec0; color: #2d3748; }',
+      flowchart: {
+        nodeSpacing: 50,
+        rankSpacing: 60
+      }
+    });
     
     // Initialize ApexCharts
     document.addEventListener('DOMContentLoaded', function() {
@@ -355,17 +416,33 @@ class MarkdownToPdfConverter {
   async htmlToPdf(html: string) {
     const browser = await puppeteer.launch({ 
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none']
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox', 
+        '--font-render-hinting=none',
+        '--max-old-space-size=4096',
+        '--disable-dev-shm-usage',
+        '--enable-features=VaapiVideoDecoder',
+        '--disable-features=VizDisplayCompositor'
+      ]
     });
     
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 1200, height: 1600, deviceScaleFactor: 2 });
-      await page.setContent(html, { waitUntil: 'networkidle2' });
+      
+      // Set longer timeout for large content
+      page.setDefaultTimeout(60000);
+      page.setDefaultNavigationTimeout(60000);
+      
+      await page.setContent(html, { 
+        waitUntil: 'networkidle0',
+        timeout: 60000
+      });
       
       await Promise.race([
         page.evaluateHandle('document.fonts.ready'),
-        new Promise(resolve => setTimeout(resolve, 5000))
+        new Promise(resolve => setTimeout(resolve, 10000))
       ]);
       
       // Disable animations and ensure complete rendering
@@ -381,7 +458,7 @@ class MarkdownToPdfConverter {
         }
       });
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       try {
         await page.waitForFunction(() => {
@@ -392,10 +469,29 @@ class MarkdownToPdfConverter {
           const chartsReady = chartElements.length === 0 || 
                              Array.from(chartElements).every(el => el.querySelector('svg'));
           return mermaidReady && chartsReady;
-        }, { timeout: 10000 });
+        }, { timeout: 30000 });
       } catch (e) {
         console.error('Chart rendering timeout, proceeding anyway');
       }
+      
+      // Ensure all links are properly formatted for PDF
+      await page.evaluate(() => {
+        // Add proper attributes to all links for PDF compatibility
+        document.querySelectorAll('a[href]').forEach((link: any) => {
+          const href = link.getAttribute('href');
+          if (href) {
+            // Ensure the link has proper styling and attributes
+            link.style.color = '#0066cc';
+            link.style.textDecoration = 'underline';
+            link.style.wordBreak = 'break-all';
+            
+            // Add title attribute if not present for better PDF compatibility
+            if (!link.title && href.startsWith('http')) {
+              link.title = href;
+            }
+          }
+        });
+      });
       
       return await page.pdf({
         format: this.options.format as any,
@@ -403,7 +499,11 @@ class MarkdownToPdfConverter {
         displayHeaderFooter: this.options.displayHeaderFooter,
         printBackground: this.options.printBackground,
         tagged: true,
-        outline: true
+        outline: true,
+        timeout: 120000,
+        // These options help preserve links in PDF
+        preferCSSPageSize: true,
+        omitBackground: false
       });
     } finally {
       await browser.close();
@@ -420,7 +520,7 @@ function setupServer(server: McpServer) {
       title: "Convert Markdown File to PDF",
       description: "Convert a markdown file to PDF",
       inputSchema: {
-        markdownPath: z.string().describe("Path to the markdown file to convert"),
+        markdownPath: z.string().describe("Path to the markdown file to convert (local path or URL)"),
         outputPath: z.string().describe("Path where the PDF should be saved"),
         format: z.enum(['A4', 'A3', 'A5', 'Letter', 'Legal', 'Tabloid']).optional().describe("PDF page format (default: A4)"),
         margin: z.object({
@@ -461,6 +561,71 @@ function setupServer(server: McpServer) {
     }
   );
 
+  // Register S3 markdown to PDF tool
+  server.registerTool(
+    "convert_s3_markdown_to_pdf",
+    {
+      title: "Convert S3 Markdown File to PDF",
+      description: "Convert a markdown file from S3 bucket to PDF using bucket and key parameters",
+      inputSchema: {
+        bucket: z.string().describe("S3 bucket name"),
+        key: z.string().describe("S3 object key (path to the markdown file)"),
+        outputPath: z.string().describe("Path where the PDF should be saved (local path or S3 key for upload)"),
+        uploadToS3: z.boolean().optional().describe("Whether to upload the PDF back to the same S3 bucket (default: false)"),
+        region: z.string().optional().describe("AWS region (defaults to us-east-1)"),
+        format: z.enum(['A4', 'A3', 'A5', 'Letter', 'Legal', 'Tabloid']).optional().describe("PDF page format (default: A4)"),
+        margin: z.object({
+          top: z.string().optional(),
+          right: z.string().optional(),
+          bottom: z.string().optional(),
+          left: z.string().optional()
+        }).optional().describe("PDF margins (e.g., '0.5in', '20mm')")
+      }
+    },
+    async ({ bucket, key, outputPath, region, format, margin, uploadToS3 }) => {
+      try {
+        const options: any = {};
+        if (format) options.format = format;
+        if (margin) options.margin = margin;
+
+        const converter = new MarkdownToPdfConverter(options);
+        const markdownContent = await converter.downloadFromS3Direct(bucket, key, region);
+        const { data: frontMatter, content } = matter(markdownContent);
+        
+        const html = converter.generateHtml(content, frontMatter);
+        const pdf = await converter.htmlToPdf(html);
+        
+        let resultPath: string;
+        
+        if (uploadToS3) {
+          await converter.uploadToS3(bucket, outputPath, Buffer.from(pdf), region);
+          resultPath = `s3://${bucket}/${outputPath}`;
+        } else {
+          await writeFile(resolve(outputPath), pdf);
+          resultPath = resolve(outputPath);
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Successfully converted S3 markdown to PDF!\nBucket: ${bucket}\nKey: ${key}\nOutput: ${resultPath}`
+            }
+          ]
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error converting S3 markdown to PDF: ${error instanceof Error ? error.message : String(error)}`
+            }
+          ]
+        };
+      }
+    }
+  );
+
   // Register markdown content to PDF tool
   server.registerTool(
     "markdown_content_to_pdf",
@@ -468,7 +633,13 @@ function setupServer(server: McpServer) {
       title: "Convert Markdown Content to PDF",
       description: "Convert markdown content directly to PDF",
       inputSchema: {
-        markdownContent: z.string().describe("Markdown content to convert"),
+        markdownContent: z.union([
+          z.string(),
+          z.object({
+            content: z.string(),
+            chunks: z.array(z.string()).optional()
+          })
+        ]).describe("Markdown content to convert (string or JSON object with content/chunks)"),
         outputPath: z.string().describe("Path where the PDF should be saved"),
         title: z.string().optional().describe("Document title for the PDF"),
         format: z.enum(['A4', 'A3', 'A5', 'Letter', 'Legal', 'Tabloid']).optional().describe("PDF page format (default: A4)"),
@@ -488,7 +659,18 @@ function setupServer(server: McpServer) {
 
         const converter = new MarkdownToPdfConverter(options);
         const frontMatter = title ? { title } : {};
-        const html = converter.generateHtml(markdownContent, frontMatter);
+        
+        let content: string;
+        if (typeof markdownContent === 'string') {
+          content = markdownContent;
+        } else {
+          content = markdownContent.content;
+          if (markdownContent.chunks) {
+            content += '\n\n' + markdownContent.chunks.join('\n\n');
+          }
+        }
+        
+        const html = converter.generateHtml(content, frontMatter);
         const pdf = await converter.htmlToPdf(html);
         
         await writeFile(resolve(outputPath), pdf);
@@ -549,8 +731,7 @@ async function runHttp(port: number = 3000) {
         onsessioninitialized: (sessionId) => {
           transports[sessionId] = transport;
         },
-        enableDnsRebindingProtection: true,
-        allowedHosts: ['127.0.0.1', 'localhost']
+        enableDnsRebindingProtection: false
       });
 
       transport.onclose = () => {
@@ -651,6 +832,9 @@ async function main() {
       break;
   }
 }
+
+// Export the converter class for external use
+export { MarkdownToPdfConverter };
 
 main().catch((error) => {
   console.error("Fatal error in main():", error);

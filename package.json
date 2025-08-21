@@ -1,9 +1,9 @@
 {
-  "name": "md-mermaid-chart-pdf-mcp",
-  "version": "1.2.0",
+  "name": "s3-md-pdf-converter-mcp",
+  "version": "1.1.1",
   "type": "module",
   "bin": {
-    "md-mermaid-chart-pdf-mcp": "build/index.js"
+    "s3-md-pdf-converter-mcp": "build/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -29,6 +29,8 @@
     "apexcharts",
     "charts",
     "diagrams",
+    "s3",
+    "aws",
     "stdio",
     "http",
     "sse",
@@ -41,14 +43,14 @@
   ],
   "author": "Your Name",
   "license": "MIT",
-  "description": "A powerful MCP server with stdio/HTTP/SSE transport support for converting Markdown files and content to beautifully styled PDFs with Mermaid diagrams and ApexCharts. Features modern typography, multiple page formats, and professional styling.",
+  "description": "A powerful MCP server with stdio/HTTP/SSE transport support for converting Markdown files and content to beautifully styled PDFs with S3 integration, Mermaid diagrams and ApexCharts. Features modern typography, multiple page formats, and professional styling.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/skmprb/md-mermaid-chart-pdf-mcp.git"
+    "url": "git+https://github.com/skmprb/s3-md-pdf-converter-mcp.git"
   },
-  "homepage": "https://github.com/skmprb/md-mermaid-chart-pdf-mcp#readme",
+  "homepage": "https://github.com/skmprb/s3-md-pdf-converter-mcp#readme",
   "bugs": {
-    "url": "https://github.com/skmprb/md-mermaid-chart-pdf-mcp/issues"
+    "url": "https://github.com/skmprb/s3-md-pdf-converter-mcp/issues"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -69,7 +71,8 @@
     "puppeteer": "^23.10.4",
     "gray-matter": "^4.0.3",
     "express": "^4.18.2",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "@aws-sdk/client-s3": "^3.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
